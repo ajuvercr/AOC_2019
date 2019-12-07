@@ -2,6 +2,11 @@
 
 (require "uiop")
 
+(defun shift (l)
+    (if (second l)
+        (cons (second l) (shift (cons (first l) (rest (rest l)))))
+        l))
+
 (defun update (idx value l)
     (if (= idx 0)
         (cons value (rest l))
@@ -12,74 +17,72 @@
         (nth index input)
         (nth (nth index input) input)))
 
-(defun my-add (input index modes)
-    (let* (
-        (arg1 (get-it input (+ index 1) (nth 0 modes)))
-        (arg2 (get-it input (+ index 2) (nth 1 modes)))
-        (dist (nth (+ index 3) input))
-        (resl (+ arg1 arg2)))
-    (list (update dist resl input) (+ 4 index))))
+(defun my-add (states modes)
+    (destructuring-bind (input index channel) (first states)
+        (let* (
+            (arg1 (get-it input (+ index 1) (nth 0 modes)))
+            (arg2 (get-it input (+ index 2) (nth 1 modes)))
+            (dist (nth (+ index 3) input))
+            (resl (+ arg1 arg2)))
+        (cons (list (update dist resl input) (+ 4 index) channel) (rest states)))))
 
-(defun my-times (input index modes)
-    (let* (
-        (arg1 (get-it input (+ index 1) (nth 0 modes)))
-        (arg2 (get-it input (+ index 2) (nth 1 modes)))
-        (dist (nth (+ index 3) input))
-        (resl (* arg1 arg2)))
-    (list (update dist resl input) (+ 4 index))))
+(defun my-times (states modes)
+    (destructuring-bind (input index channel) (first states)
+        (let* (
+            (arg1 (get-it input (+ index 1) (nth 0 modes)))
+            (arg2 (get-it input (+ index 2) (nth 1 modes)))
+            (dist (nth (+ index 3) input))
+            (resl (* arg1 arg2)))
+    (cons (list (update dist resl input) (+ 4 index) channel) (rest states)))))
 
 (defun get-user-input ()
     (read nil 'eof nil))
 
-(defparameter *thrusters* (list))
-(defun save-thruster (num)
-    (setf *thrusters* (cons (first *thrusters*) (cons num (rest *thrusters*)))))
+(defun my-save (states modes)
+    (destructuring-bind (input index channel) (first states)
+        (let* (
+                (dist (nth (+ index 1) input))
+                (resl (first channel)))
+            (cons (list (update dist resl input) (+ 2 index) (rest channel)) (rest states)))))
 
-(defun get-thruster ()
-    (let ((out (first *thrusters*)))
-        (progn
-            (setf *thrusters* (rest *thrusters*))
-            (values out))))
+(defun my-write (states modes)
+    (destructuring-bind (input1 index1 channel1) (first states)
+        (destructuring-bind (input2 index2 channel2) (second states)
+            (let ((arg1 (get-it input1 (+ index1 1) (nth 0 modes))))
+                (shift (cons (list input1 (+ 2 index1) channel1) (cons (list input2 index2 (shift (cons arg1 channel2))) (rest (rest states)))))))))
 
-(defun my-save (input index modes)
-    (let* (
-        (dist (nth (+ index 1) input))
-        (resl (get-thruster)))
-    (list (update dist resl input) (+ 2 index))))
+(defun my-jump-if-true (states modes)
+    (destructuring-bind (input index channel) (first states)
+        (let* (
+            (arg1 (get-it input (+ index 1) (nth 0 modes)))
+            (arg2 (get-it input (+ index 2) (nth 1 modes))))
+        (cons (if (/= 0 arg1) (list input arg2 channel) (list input (+ 3 index) channel)) (rest states)))))
 
-(defun my-write (input index modes)
-    (let ((arg1 (get-it input (+ index 1) (nth 0 modes))))
-        (save-thruster arg1 ))
-    (list input (+ 2 index)))
+(defun my-jump-if-false (states modes)
+    (destructuring-bind (input index channel) (first states)
+        (let* (
+            (arg1 (get-it input (+ index 1) (nth 0 modes)))
+            (arg2 (get-it input (+ index 2) (nth 1 modes))))
+        (cons (if (= 0 arg1) (list input arg2 channel) (list input (+ 3 index) channel)) (rest states)))))
 
-(defun jump-if-true (input index modes)
-    (let* (
-        (arg1 (get-it input (+ index 1) (nth 0 modes)))
-        (arg2 (get-it input (+ index 2) (nth 1 modes))))
-        (if (/= 0 arg1) (list input arg2) (list input (+ 3 index)))))
-
-(defun jump-if-false (input index modes)
-    (let* (
-        (arg1 (get-it input (+ index 1) (nth 0 modes)))
-        (arg2 (get-it input (+ index 2) (nth 1 modes))))
-        (if (= 0 arg1) (list input arg2) (list input (+ 3 index)))))
-
-(defun my-lt (input index modes)
-    (let* (
-        (arg1 (get-it input (+ index 1) (nth 0 modes)))
-        (arg2 (get-it input (+ index 2) (nth 1 modes)))
-        (dist (nth (+ index 3) input))
-        (resl (if (< arg1 arg2) 1 0)))
-    (list (update dist resl input) (+ 4 index))))
+(defun my-lt (states modes)
+    (destructuring-bind (input index channel) (first states)
+        (let* (
+            (arg1 (get-it input (+ index 1) (nth 0 modes)))
+            (arg2 (get-it input (+ index 2) (nth 1 modes)))
+            (dist (nth (+ index 3) input))
+            (resl (if (< arg1 arg2) 1 0)))
+    (cons (list (update dist resl input) (+ 4 index) channel) (rest states)))))
 
 
-(defun my-eq (input index modes)
-    (let* (
-        (arg1 (get-it input (+ index 1) (nth 0 modes)))
-        (arg2 (get-it input (+ index 2) (nth 1 modes)))
-        (dist (nth (+ index 3) input))
-        (resl (if (= arg1 arg2) 1 0)))
-    (list (update dist resl input) (+ 4 index))))
+(defun my-eq (states modes)
+    (destructuring-bind (input index channel) (first states)
+        (let* (
+            (arg1 (get-it input (+ index 1) (nth 0 modes)))
+            (arg2 (get-it input (+ index 2) (nth 1 modes)))
+            (dist (nth (+ index 3) input))
+            (resl (if (= arg1 arg2) 1 0)))
+    (cons (list (update dist resl input) (+ 4 index) channel) (rest states)))))
 
 
 (defparameter *operations* (make-hash-table))
@@ -87,8 +90,8 @@
 (setf (gethash 2 *operations*) #'my-times)
 (setf (gethash 3 *operations*) #'my-save)
 (setf (gethash 4 *operations*) #'my-write)
-(setf (gethash 5 *operations*) #'jump-if-true)
-(setf (gethash 6 *operations*) #'jump-if-false)
+(setf (gethash 5 *operations*) #'my-jump-if-true)
+(setf (gethash 6 *operations*) #'my-jump-if-false)
 (setf (gethash 7 *operations*) #'my-lt)
 (setf (gethash 8 *operations*) #'my-eq)
 
@@ -134,27 +137,21 @@
         (state (first states))
         (index (second state))
         (code (parse-code (nth index (first state)))))
-    (funcall (getop (first code)) (first state) index (second code))))
+    (funcall (getop (first code)) states (second code))))
 
-(defun do-step (state)
-    (if (= (nth (second state) (first state)) 99)
-        (first state)
-        (do-step (action (list state)))))
+(defun do-step (states)
+    (if (= (nth (second (first states)) (first (first states))) 99)
+        states
+        (do-step (action states))))
 
 (defun do-program (input)
     (let ((state (list input 0)))
-        (do-step state)))
-
-(defun r-program ()
-    (do-program (get-input))
-    (if (first *thrusters*)
-        (r-program)
-        (second *thrusters*)))
+        (do-step (list state))))
 
 (defun r (thrusters)
-    (setf *thrusters* thrusters)
-    (save-thruster 0)
-    (r-program))
+    (first (nth 2 (first
+        (do-step (cons (list (get-input) 0 (list (first thrusters) 0)) (mapcar #'(lambda (x) (list (get-input) 0 (list x))) (rest thrusters)))))
+    )))
 
 (defun range (max &key (min 0) (step 1))
    (loop for n from min below max by step
@@ -203,5 +200,4 @@
         (flatmap #'(lambda (x) (build-sub (first x) (second x))) (r-all options))
         nil))
 
-(setf *thrusters* (list 4 0 3 2 1 0))
-(print (reduce #'max (mapcar #'r (build-list (list 1 2 3 4 0)))))
+(print (reduce #'max (mapcar #'r (build-list (list 5 6 7 8 9)))))
