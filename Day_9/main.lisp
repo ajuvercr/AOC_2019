@@ -2,14 +2,20 @@
 
 (require "uiop")
 
-;;;;;;;;;;;;;;;;;;;; Helper functions ;;;;;;;;;;;;;;;;;;;;
 
-(defun get-user-input ()
-    (read nil 'eof nil))
 
 (defun range (max &key (min 0) (step 1))
    (loop for n from min below max by step
       collect n))
+
+(defun plus (x y)
+    (+ x y))
+
+;;;;;;;;;;;;;;;;;;;; Helper functions ;;;;;;;;;;;;;;;;;;;;
+
+
+(defun get-user-input ()
+    (read nil 'eof nil))
 
 (defun concat (l1 l2)
     (if l1
@@ -86,15 +92,28 @@
 
 ;;;;;;;;;;;;;;;;;;;; Operation handlers ;;;;;;;;;;;;;;;;;;;;
 
+(defmacro gen (name count fn)
+    `(defun ,name (states modes)
+        (destructuring-bind (input index base channel) (first states)
+            (let (
+                (args  ',(mapcar #'(lambda (x) `(get-it (nth ,x modes) input (+ index ,(+ x 1)) base)) (reverse (range (- count 2)))))
+                (dist (funcall (gethash (nth ,(- count 2) modes) *modes*) input (+ index ,(- count 1)) base)))
+                    (let ((resl (apply #',fn args)))
+                        (cons (list (update dist resl input) (+ ,count index) base channel) (rest states)))))))
+
+(format t "~A~%" (macroexpand '(gen my-add 4 plus)))
+
 ;; TODO: handle writing to relative mode
-(defun my-add (states modes)
-    (destructuring-bind (input index base channel) (first states)
-        (let* (
-            (arg1 (get-it (nth 0 modes) input (+ index 1) base))
-            (arg2 (get-it (nth 1 modes) input (+ index 2) base))
-            (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
-            (resl (+ arg1 arg2)))
-        (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
+;; (format t "~A~%" (macroexpand '(gen my-add 4 +)))
+(gen my-add 4 plus)
+;; (defun my-add (states modes)
+;;     (destructuring-bind (input index base channel) (first states)
+;;         (let* (
+;;             (arg1 (get-it (nth 0 modes) input (+ index 1) base))
+;;             (arg2 (get-it (nth 1 modes) input (+ index 2) base))
+;;             (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
+;;             (resl (+ arg1 arg2)))
+;;         (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
 
 (defun my-times (states modes)
     (destructuring-bind (input index base channel) (first states)
