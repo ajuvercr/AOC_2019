@@ -67,13 +67,7 @@
 (defparameter *position* '(0 0))
 (defparameter *direction* '(0 -1))
 (defparameter *should-paint* T)
-
-(defun real-member (x ls)
-    (if ls
-        (if (equal x (first ls))
-            ls
-            (real-member x (rest ls)))
-        nil))
+(defparameter *total-pain* 0)
 
 (defun uniq-add (pos colour ls)
     (if ls
@@ -100,6 +94,7 @@
 
 (defun paint (colour)
     (format t "Painting ~A~%" colour)
+    (setf *total-pain* (1+ *total-pain*))
     (setf *state* (uniq-add *position* colour *state*)))
 
 (defun robot (input)
@@ -263,28 +258,37 @@
 (defun do-program ()
     (do-run (list (list (get-input) 0 0 (list 2)))))
 
-;; (do-program)
-(robot 1)
-(robot 0)
+(do-program)
+;; (robot 1)
+;; (robot 0)
 
-(robot 0)
-(robot 0)
+;; (robot 0)
+;; (robot 0)
 
-(robot 1)
-(robot 0)
+;; (robot 1)
+;; (robot 0)
 
-(robot 1)
-(robot 0)
+;; (robot 1)
+;; (robot 0)
 
-(robot 0)
-(robot 1)
+;; (robot 0)
+;; (robot 1)
 
-(robot 1)
-(robot 0)
+;; (robot 1)
+;; (robot 0)
 
-(robot 1)
-(robot 0)
+;; (robot 1)
+;; (robot 0)
+
+(defun get-uniq (ls)
+    (if ls
+        (if (not (member (first ls) (rest ls)))
+            (cons (first ls) (get-uniq (rest ls)))
+            (get-uniq (rest ls)))
+        nil))
 
 (format t "Pos ~A Direction ~A State ~A~%" *position* *direction* *state*)
-(format t "Count ~A~%" (list-length *state*))
+(format t "Count ~A~%" (list-length (get-uniq (mapcar #'(lambda (x) (+ (first (first x)) (* (second (first x)) 100))) *state*))))
+(format t "Total pain ~A~%" *total-pain*)
+
 (draw-state)
