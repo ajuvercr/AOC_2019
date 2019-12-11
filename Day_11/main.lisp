@@ -2,20 +2,14 @@
 
 (require "uiop")
 
-
-
-(defun range (max &key (min 0) (step 1))
-   (loop for n from min below max by step
-      collect n))
-
-(defun plus (x y)
-    (+ x y))
-
 ;;;;;;;;;;;;;;;;;;;; Helper functions ;;;;;;;;;;;;;;;;;;;;
-
 
 (defun get-user-input ()
     (read nil 'eof nil))
+
+(defun range (max &key (min 0) (step 1))
+    (loop for n from min below max by step
+        collect n))
 
 (defun concat (l1 l2)
     (if l1
@@ -67,6 +61,63 @@
         (flatmap #'(lambda (x) (combinations-sub (first x) (second x))) (r-all options))
         nil))
 
+;;;;;;;;;;;;;;;;;;;; Robot things ;;;;;;;;;;;;;;;;;;;;
+
+(defparameter *state* nil)
+(defparameter *position* '(0 0))
+(defparameter *direction* '(0 -1))
+(defparameter *should-paint* T)
+
+(defun real-member (x ls)
+    (if ls
+        (if (equal x (first ls))
+            ls
+            (real-member x (rest ls)))
+        nil))
+
+(defun uniq-add (pos colour ls)
+    (if ls
+        (if (equal (first (first ls)) pos)
+            (cons (list pos colour) (rest ls))
+            (cons (first ls) (uniq-add pos colour (rest ls))))
+        (list (list pos colour))))
+
+(defun get-colour (pos ls)
+    (if ls
+        (if (equal (first (first ls)) pos)
+            (second (first ls))
+            (get-colour pos (rest ls)))
+        0))
+
+(defun turn (right)
+    (format t "Turning ~A~%" right)
+    (destructuring-bind (x y) *direction*
+        (setf *direction* (if (= x 0)
+            (list (* y (if right -1 1)) 0)
+            (list 0 (* x (if right 1 -1))))))
+    (setf *position* (list (+ (first *position*) (first *direction*)) (+ (second *position*) (second *direction*))))
+    (get-colour *position* *state*))
+
+(defun paint (colour)
+    (format t "Painting ~A~%" colour)
+    (setf *state* (uniq-add *position* colour *state*)))
+
+(defun robot (input)
+    (if (setf *should-paint* (not *should-paint*))
+        (turn (= 1 input))
+        (paint input)))
+
+(defun print-pos (pos)
+    (format t "~A" (if (= 1(get-colour pos *state*)) "█" " ")))
+
+(defun draw-state ()
+    (let (
+        (minx (reduce #'min (mapcar #'(lambda (x) (first (first x))) *state*)))
+        (maxx (reduce #'max (mapcar #'(lambda (x) (first (first x))) *state*)))
+        (miny (reduce #'min (mapcar #'(lambda (x) (second (first x))) *state*)))
+        (maxy (reduce #'max (mapcar #'(lambda (x) (second (first x))) *state*))))
+            (loop for y in (range (+ maxy 3) :min (- miny 2) ) do (loop for x in (range (+ maxx 3) :min (- minx 2)) do (print-pos (list x y))) (format t "~%"))))
+
 ;;;;;;;;;;;;;;;;;;;; Index mode handler ;;;;;;;;;;;;;;;;;;;;
 
 (defun my-position (input index base)
@@ -92,29 +143,24 @@
 
 ;;;;;;;;;;;;;;;;;;;; Operation handlers ;;;;;;;;;;;;;;;;;;;;
 
-(defun eval-it (quotes modes input index base)
-    (declare (special modes))
-    (declare (special input))
-    (declare (special index))
-    (declare (special base))
-    (mapcar #'eval quotes))
+;; TODO: handle writing to relative mode
+(defun my-add (states modes)
+    (destructuring-bind (input index base channel) (first states)
+        (let* (
+            (arg1 (get-it (nth 0 modes) input (+ index 1) base))
+            (arg2 (get-it (nth 1 modes) input (+ index 2) base))
+            (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
+            (resl (+ arg1 arg2)))
+        (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
 
-(defmacro gen (name count fn)
-    `(defun ,name (states modes)
-        (destructuring-bind (input index base channel) (first states)
-            (let (
-                (args ',(mapcar #'(lambda (x) `(get-it (nth ,x modes) input (+ index ,(+ x 1)) base)) (reverse (range (- count 2)))))
-                (dist (funcall (gethash (nth ,(- count 2) modes) *modes*) input (+ index ,(- count 1)) base)))
-                    (let ((resl (apply #',fn (eval-it args modes input index base))))
-                        (cons (list (update dist resl input) (+ ,count index) base channel) (rest states)))))))
-
-(gen my-add 4 +)
-(gen my-times 4 *)
-
-(gen my-eq 4 (lambda (x y) (if (= x y) 1 0)))
-(gen my-lt 4 (lambda (x y) (if (< x y) 1 0)))
-
-(print (macroexpand '(gen my-lt 4 (lambda (x y) (if (< x y) 1 0)))))
+(defun my-times (states modes)
+    (destructuring-bind (input index base channel) (first states)
+        (let* (
+            (arg1 (get-it (nth 0 modes) input (+ index 1) base))
+            (arg2 (get-it (nth 1 modes) input (+ index 2) base))
+            (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
+            (resl (* arg1 arg2)))
+    (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
 
 (defun my-save (states modes)
     (format t "Saving?~%")
@@ -127,8 +173,7 @@
 (defun my-write (states modes)
     (destructuring-bind (input index base channel) (first states)
         (let ((arg1 (get-it (nth 0 modes) input (+ index 1) base)))
-            (format t "Write: ~A~%" arg1))
-        (cons (list input (+ 2 index) base channel) (rest states))))
+            (cons (list input (+ 2 index) base (list (robot arg1))) (rest states)))))
 
 (defun my-jump-if-true (states modes)
     (destructuring-bind (input index base channel) (first states)
@@ -144,23 +189,23 @@
             (arg2 (get-it (nth 1 modes) input (+ index 2) base)))
         (cons (if (= 0 arg1) (list input arg2 base channel) (list input (+ 3 index) base channel)) (rest states)))))
 
-;; (defun my-lt (states modes)
-;;     (destructuring-bind (input index base channel) (first states)
-;;         (let* (
-;;             (arg1 (get-it (nth 0 modes) input (+ index 1) base))
-;;             (arg2 (get-it (nth 1 modes) input (+ index 2) base))
-;;             (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
-;;             (resl (if (< arg1 arg2) 1 0)))
-;;     (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
+(defun my-lt (states modes)
+    (destructuring-bind (input index base channel) (first states)
+        (let* (
+            (arg1 (get-it (nth 0 modes) input (+ index 1) base))
+            (arg2 (get-it (nth 1 modes) input (+ index 2) base))
+            (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
+            (resl (if (< arg1 arg2) 1 0)))
+    (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
 
-;; (defun my-eq (states modes)
-;;     (destructuring-bind (input index base channel) (first states)
-;;         (let* (
-;;             (arg1 (get-it (nth 0 modes) input (+ index 1) base))
-;;             (arg2 (get-it (nth 1 modes) input (+ index 2) base))
-;;             (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
-;;             (resl (if (= arg1 arg2) 1 0)))
-;;     (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
+(defun my-eq (states modes)
+    (destructuring-bind (input index base channel) (first states)
+        (let* (
+            (arg1 (get-it (nth 0 modes) input (+ index 1) base))
+            (arg2 (get-it (nth 1 modes) input (+ index 2) base))
+            (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
+            (resl (if (= arg1 arg2) 1 0)))
+    (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
 
 (defun my-set-base (states modes)
     (destructuring-bind (input index base channel) (first states)
@@ -218,4 +263,28 @@
 (defun do-program ()
     (do-run (list (list (get-input) 0 0 (list 2)))))
 
-(do-program)
+;; (do-program)
+(robot 1)
+(robot 0)
+
+(robot 0)
+(robot 0)
+
+(robot 1)
+(robot 0)
+
+(robot 1)
+(robot 0)
+
+(robot 0)
+(robot 1)
+
+(robot 1)
+(robot 0)
+
+(robot 1)
+(robot 0)
+
+(format t "Pos ~A Direction ~A State ~A~%" *position* *direction* *state*)
+(format t "Count ~A~%" (list-length *state*))
+(draw-state)
