@@ -92,29 +92,18 @@
 
 ;;;;;;;;;;;;;;;;;;;; Operation handlers ;;;;;;;;;;;;;;;;;;;;
 
-(defun eval-it (quotes modes input index base)
-    (declare (special modes))
-    (declare (special input))
-    (declare (special index))
-    (declare (special base))
-    (mapcar #'eval quotes))
-
 (defmacro gen (name count fn)
     `(defun ,name (states modes)
         (destructuring-bind (input index base channel) (first states)
             (let (
-                (args ',(mapcar #'(lambda (x) `(get-it (nth ,x modes) input (+ index ,(+ x 1)) base)) (reverse (range (- count 2)))))
+                (args (list ,@(mapcar #'(lambda (x) `(get-it (nth ,x modes) input (+ index ,(+ x 1)) base)) (range (- count 2)))))
                 (dist (funcall (gethash (nth ,(- count 2) modes) *modes*) input (+ index ,(- count 1)) base)))
-                    (let ((resl (apply #',fn (eval-it args modes input index base))))
-                        (cons (list (update dist resl input) (+ ,count index) base channel) (rest states)))))))
+            (cons (list (update dist (apply ,fn args) input) (+ ,count index) base channel) (rest states))))))
 
-(gen my-add 4 +)
-(gen my-times 4 *)
-
-(gen my-eq 4 (lambda (x y) (if (= x y) 1 0)))
-(gen my-lt 4 (lambda (x y) (if (< x y) 1 0)))
-
-(print (macroexpand '(gen my-lt 4 (lambda (x y) (if (< x y) 1 0)))))
+(gen my-add 4 #'+)
+(gen my-times 4 #'*)
+(gen my-lt 4 #'(lambda (x y) (if (< x y) 1 0)))
+(gen my-eq 4 #'(lambda (x y) (if (= x y) 1 0)))
 
 (defun my-save (states modes)
     (format t "Saving?~%")
@@ -144,29 +133,10 @@
             (arg2 (get-it (nth 1 modes) input (+ index 2) base)))
         (cons (if (= 0 arg1) (list input arg2 base channel) (list input (+ 3 index) base channel)) (rest states)))))
 
-;; (defun my-lt (states modes)
-;;     (destructuring-bind (input index base channel) (first states)
-;;         (let* (
-;;             (arg1 (get-it (nth 0 modes) input (+ index 1) base))
-;;             (arg2 (get-it (nth 1 modes) input (+ index 2) base))
-;;             (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
-;;             (resl (if (< arg1 arg2) 1 0)))
-;;     (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
-
-;; (defun my-eq (states modes)
-;;     (destructuring-bind (input index base channel) (first states)
-;;         (let* (
-;;             (arg1 (get-it (nth 0 modes) input (+ index 1) base))
-;;             (arg2 (get-it (nth 1 modes) input (+ index 2) base))
-;;             (dist (funcall (gethash (nth 2 modes) *modes*) input (+ index 3) base))
-;;             (resl (if (= arg1 arg2) 1 0)))
-;;     (cons (list (update dist resl input) (+ 4 index) base channel) (rest states)))))
-
 (defun my-set-base (states modes)
     (destructuring-bind (input index base channel) (first states)
         (let ((new-base (get-it (nth 0 modes) input (+ index 1) base)))
             (cons (list input (+ 2 index) (+ new-base base) channel) (rest states)))))
-
 
 ;; Get the right operation handler
 (defparameter *operations* (make-hash-table))
@@ -216,6 +186,6 @@
 
 ;; Step all thrusters and 'input' channels
 (defun do-program ()
-    (do-run (list (list (get-input) 0 0 (list 2)))))
+    (do-run (list (list (get-input) 0 0 (list 1)))))
 
 (do-program)
