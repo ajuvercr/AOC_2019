@@ -256,7 +256,7 @@
 
 ;; Step all thrusters and 'input' channels
 (defun do-program ()
-    (do-run (list (list (get-input) 0 0 (list 2)))))
+    (do-run (list (list (get-input) 0 0 (list 1)))))
 
 (do-program)
 ;; (robot 1)
