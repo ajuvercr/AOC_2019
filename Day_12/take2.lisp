@@ -44,82 +44,13 @@
         (let ((new-velocities (apply #'mapcar #'+ (list velocities (mapcar #'get-deltas (r-all positions))))))
             (list (apply #'mapcar #'+ (list positions new-velocities)) new-velocities))))
 
-(defun real-member (x ls)
-    (if ls
-        (if (equal x (first ls))
-            T
-            (real-member x (rest ls)))
-        nil))
-
-(defparameter *equals* nil)
-(defun print-it (at)
-    (format t "~A~%" at)
-    at)
-
 (defun do-while (at test input)
     (let ((new-input (dir-step input)))
         (if (equal new-input test)
             (values (+ at 1) new-input)
             (do-while (+ at 1) test new-input))))
 
-(defun find-match (at current)
-    (print-it (do-while at current current)))
+(defun find-match (current)
+    (do-while 0 current current))
 
-(defun try-match (at current show)
-    (if (< 0 show)
-        (multiple-value-bind (n-at n-current) (find-match at current)
-            (cons n-at (try-match n-at n-current (- show 1))))
-        nil))
-
-
-;; (setf *equals* nil)
-;; (try-match nil (nth 0 (get-test-input)) 0 2)
-(format t "~A~%" (apply #'lcm (mapcar #'(lambda (x) (find-match 0 x)) (get-input))))
-;; (format t "~A~%" (do-while 0 (first (get-input)) (first (get-input))))
-;; (format t "~A~%" (do-while 0 (nth 1 (get-input)) (nth 1 (get-input))))
-;; (format t "~A~%" (do-while 0 (nth 2 (get-input)) (nth 2 (get-input))))
-
-;; (format t "Offset ~A~AFactor: ~A~%" (second *equals*) #\tab (- (first *equals*) (second *equals*)))
-
-;; (setf *equals* nil)
-;; (try-match nil (nth 1 (get-test-input)) 0 2)
-;; (format t "~A~%" *equals*)
-;; ;; (format t "Offset ~A~AFactor: ~A~%" (second *equals*) #\tab (- (first *equals*) (second *equals*)))
-
-;; (setf *equals* nil)
-;; (try-match nil (nth 2 (get-test-input)) 0 2)
-;; (format t "~A~%" *equals*)
-
-;; (format t "Offset ~A~AFactor: ~A~%" (second *equals*) #\tab (- (first *equals*) (second *equals*)))
-
-;; n * 19 = 10 + m * 29
-;; 29 = 19 (2) - 9
-;; 19 = 9 (2) + 1
-;; 9 = 2 (4) + 1
-;; 2 = 1 (4) - 2
-;; (lcm 19 29) = 551
-
-;; 29 + 551
-
-
-;; n1, n2, n3 natural numbers
-;; first: 18 + n1 * 19 = x  <=> x - 18 / 19 = n1
-;; secon: 28 + n2 * 29 = x
-;; third: 44 + n3 * 45 = 28 + 522 * n4
-;; 16 + n3 * 45 = 522 * n4
-
-
-;; find x
-
-;; 18 + n1 * 19 = 28 + n2 * 29
-;; n1 = (10 + n2 * 29) / 19
-;; n2 = 18
-
-;; n4 = (16 + n3 * 45) / 522
-
-;; n3 = (28 - 44 + n4 * 522) / 45
-
-
-;; m = 522 n = 45 k = 16
-
-;;
+(format t "~A~%" (apply #'lcm (mapcar #'find-match (get-input))))
