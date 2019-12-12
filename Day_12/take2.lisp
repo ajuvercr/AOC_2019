@@ -16,7 +16,7 @@
 
 (defun get-input ()
     '(
-        ((-2 12 9 -1) (0 0 0 0))
+        ((-6 12 9 -1) (0 0 0 0))
         ((2 -14 5 -4) (0 0 0 0))
         ((-9 -4 -6 9) (0 0 0 0))
     ))
@@ -52,31 +52,43 @@
         nil))
 
 (defparameter *equals* nil)
-(defun print-it (new at)
-    (setf *equals* (cons at *equals*))
-    new)
+(defun print-it (at)
+    (format t "~A~%" at)
+    at)
 
-(defun try-match (seen current at show)
+(defun do-while (at test input)
+    (let ((new-input (dir-step input)))
+        (if (equal new-input test)
+            (values (+ at 1) new-input)
+            (do-while (+ at 1) test new-input))))
+
+(defun find-match (at current)
+    (print-it (do-while at current current)))
+
+(defun try-match (at current show)
     (if (< 0 show)
-        (let ((new-input (dir-step current)))
-            (if (real-member new-input seen)
-                (try-match nil (print-it new-input at) (+ at 1) (- show 1))
-                (try-match (cons new-input seen) new-input (+ at 1) show))))
-        ())
+        (multiple-value-bind (n-at n-current) (find-match at current)
+            (cons n-at (try-match n-at n-current (- show 1))))
+        nil))
 
-(setf *equals* nil)
-(try-match nil (nth 0 (get-input)) 0 2)
-(format t "~A~%" *equals*)
+
+;; (setf *equals* nil)
+;; (try-match nil (nth 0 (get-test-input)) 0 2)
+(format t "~A~%" (apply #'lcm (mapcar #'(lambda (x) (find-match 0 x)) (get-input))))
+;; (format t "~A~%" (do-while 0 (first (get-input)) (first (get-input))))
+;; (format t "~A~%" (do-while 0 (nth 1 (get-input)) (nth 1 (get-input))))
+;; (format t "~A~%" (do-while 0 (nth 2 (get-input)) (nth 2 (get-input))))
+
 ;; (format t "Offset ~A~AFactor: ~A~%" (second *equals*) #\tab (- (first *equals*) (second *equals*)))
 
-(setf *equals* nil)
-(try-match nil (nth 1 (get-input)) 0 2)
-(format t "~A~%" *equals*)
-;; (format t "Offset ~A~AFactor: ~A~%" (second *equals*) #\tab (- (first *equals*) (second *equals*)))
+;; (setf *equals* nil)
+;; (try-match nil (nth 1 (get-test-input)) 0 2)
+;; (format t "~A~%" *equals*)
+;; ;; (format t "Offset ~A~AFactor: ~A~%" (second *equals*) #\tab (- (first *equals*) (second *equals*)))
 
-(setf *equals* nil)
-(try-match nil (nth 2 (get-input)) 0 2)
-(format t "~A~%" *equals*)
+;; (setf *equals* nil)
+;; (try-match nil (nth 2 (get-test-input)) 0 2)
+;; (format t "~A~%" *equals*)
 
 ;; (format t "Offset ~A~AFactor: ~A~%" (second *equals*) #\tab (- (first *equals*) (second *equals*)))
 
