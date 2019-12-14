@@ -34,20 +34,12 @@
             (cons (first sub) (chunks (second sub) num)))
         nil))
 
-(defun any (f ls)
+(defun real-member (x ls)
     (if ls
-        (if (funcall f (first ls))
-            (first ls)
-            (any f (rest ls)))
+        (if (equal x (first ls))
+            ls
+            (real-member x (rest ls)))
         nil))
-
-(defun partition (f ls)
-    (if ls
-        (destructuring-bind (f-true f-false) (partition f (rest ls))
-            (if (funcall f (first ls))
-                (list (cons (first ls) f-true) f-false)
-                (list f-true (cons (first ls) f-false))))
-        (list nil nil)))
 
 (defun get-first (f ls)
     (if (funcall f (first ls))
@@ -66,12 +58,18 @@
 (defun get-times (x)
     (ceiling (nth 2 x) (first x)))
 
+(defun get-div (x)
+    (/ (nth 2 x) (first x)))
+
+;; No warning please
+(defparameter *times* nil)
+
 (defun handle-used (state to-handle)
-    (let ((x (mapcar #'(lambda (x) (list (* (first x) (get-times (second to-handle))) (second x))) (first to-handle))))
+    (let ((x (mapcar #'(lambda (x) (list (* (first x) (funcall *times* (second to-handle))) (second x))) (first to-handle))))
         (reduce #'update-state x :initial-value state)))
 
 (defun is-used-as-input (x ls)
-    (not (any #'(lambda (y) (equal x y)) (mapcar #'second (flatmap #'first ls)))))
+    (not (real-member x (mapcar #'second (flatmap #'first ls)))))
 
 (defun set-wanted (x)
     (if (equal (second x) "FUEL")
@@ -87,16 +85,18 @@
 (defun get-input ()
     (mapcar #'parse-line
         (split #\newline
-            (coerce (uiop:read-file-string #p"input2.txt") 'list))))
+            (coerce (uiop:read-file-string #p"input.txt") 'list))))
 
 (defun do-step (state)
-    (destructuring-bind (f-true f-false) (partition #'(lambda (x) (is-used-as-input (second (second x)) state)) state)
-        (if f-false
-            (do-step (reduce #'handle-used f-true :initial-value f-false))
-            f-true)))
+    (destructuring-bind (x f-false) (get-first #'(lambda (x) (is-used-as-input (second (second x)) state)) state)
+        (if x
+            (do-step (handle-used f-false x))
+            f-false)))
 
 (defun last-step (state)
     (reduce #'+ (mapcar #'(lambda (x) (* (first (first (first x))) (get-times (second x)))) state)))
 
-(format t "~A~%" (do-step (get-input)))
-(format t "~A~%" (last-step (do-step (get-input))))
+(setf *times* #'get-times)
+(format t "Required ore for one fuel ~A.~%" (nth 2 (second (first (do-step (get-input))))))
+(setf *times* #'get-div)
+(format t "You can make ~A with 1 trillion ore.~%" (floor 1000000000000 (nth 2 (second (first (do-step (get-input)))))))
