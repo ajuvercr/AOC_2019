@@ -44,7 +44,7 @@
     (to-int-list (uiop:read-file-string #p"input2.txt")))
 
 (defun get-patter (index layer)
-    (nth (mod (floor index (1+ layer)) 4) '(0 1 0 -1)))
+    (nth (mod (floor (1+ index) (1+ layer)) 4) '(0 1 0 -1)))
 
 (defun do-layer (input layer)
     (get-last-digit (reduce #'+ (enumerate #'(lambda (x i) (* x (get-patter i layer))) input))))
@@ -84,6 +84,8 @@
 
 ;; (format t "~A~%" (get-input))
 ;; (format t "~A~%" (get-first 8 (reduce-n-times #'do-phase (get-input) 100)))
-(format t "~A~%" (chunks (do-phase (repeat (get-input) 10)) (list-length (get-input))))
+(defparameter *times* 8)
+(format t  "~A~%" (chunks (repeat (get-input) *times*) (list-length (get-input))))
+(format t "~A~%" (chunks (do-phase (repeat (get-input) *times*)) (list-length (get-input))))
 (format t "~A~%" (list-length (get-input)))
 ;; (format t "~A~%" (get-with-skips (to-int-list "70000000") (to-int-list "98765432109876543210") 0))
