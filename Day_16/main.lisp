@@ -41,7 +41,7 @@
         (coerce input 'list)))
 
 (defun get-input ()
-    (to-int-list (uiop:read-file-string #p"input2.txt")))
+    (to-int-list (uiop:read-file-string #p"input.txt")))
 
 (defun get-patter (index layer)
     (nth (mod (floor (1+ index) (1+ layer)) 4) '(0 1 0 -1)))
@@ -72,8 +72,19 @@
                      l1
                      :initial-value l2
                      :from-end t))
+
 (defun repeat (ls n)
-    (reduce #'(lambda (x i) (concat x ls)) (range n) :initial-value nil))
+    (reduce #'concat (loop :repeat n :collect ls) :initial-value nil))
+
+(defun drop (ls n)
+    (if (> n 0)
+        (drop (rest ls) (1- n))
+        ls))
+
+(defun phase2 (seq sum)
+    (if seq
+        (cons (get-last-digit sum) (phase2 (rest seq) (- (first seq) sum))))
+        nil)
 
 (defun get-first (n ls)
     (if (> n 0)
@@ -83,9 +94,11 @@
 ;; (format t "~A~%" (get-first 5 (repeat '(1 2 3) 3)))
 
 ;; (format t "~A~%" (get-input))
-;; (format t "~A~%" (get-first 8 (reduce-n-times #'do-phase (get-input) 100)))
+(format t "~A~%" (get-first 8 (reduce-n-times #'do-phase (get-input) 100)))
+(format t "~A~%" (repeat (get-input) 10000))
+(format t "~A~%" (get-first 8 (reduce-n-times #'(lambda (x) (reverse (phase2 (reverse x) (reduce #'+ x)))) (drop (repeat (get-input) 10000) 59709275))))
 (defparameter *times* 8)
-(format t  "~A~%" (chunks (repeat (get-input) *times*) (list-length (get-input))))
-(format t "~A~%" (chunks (do-phase (repeat (get-input) *times*)) (list-length (get-input))))
-(format t "~A~%" (list-length (get-input)))
+;; (format t  "~A~%" (chunks (repeat (get-input) *times*) (list-length (get-input))))
+;; (format t "~A~%" (chunks (do-phase (repeat (get-input) *times*)) (list-length (get-input))))
+;; (format t "~A~%" (list-length (get-input)))
 ;; (format t "~A~%" (get-with-skips (to-int-list "70000000") (to-int-list "98765432109876543210") 0))

@@ -29,11 +29,7 @@
     ))
 
 (defun delta (p1 p2)
-    (if (= p1 p2)
-        0
-        (if (< p1 p2)
-            1
-            -1)))
+    (if (= p1 p2) 0 (if (< p1 p2) 1 -1)))
 
 (defun get-deltas (input)
     (destructuring-bind (self others) input
