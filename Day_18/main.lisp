@@ -95,7 +95,7 @@
         nil))
 
 (defun get-input ()
-    (split #\newline (coerce (uiop:read-file-string #p"input.txt") 'list)))
+    (split #\newline (coerce (uiop:read-file-string #p"input2.txt") 'list)))
 
 
 ;;;;;;;;;;;;;;;;;;;;; Transform input to graph ;;;;;;;;;;;;;;;;;;;;;
@@ -172,27 +172,27 @@
 ;; Endf is function (T) -> bool to see if T is end
 ;; getf is function (T) -> (w, T)[] T to list of weights and other T
 
-;; T: (char (keys))
+;; T: ((char) (keys))
 
 (defun add-key (key keys)
-    (if (equal key #\@)
-        keys
+    (if (both-case-p key)
         (if keys
             (if (equal (first keys) key)
                 keys
                 (cons (first keys) (add-key key (rest keys))))
-            (list key))))
+            (list key))
+        keys))
 
 (defun endf (item)
     (= (list-length *keys*) (list-length (second item))))
 
-(defun to-T (item keys)
+(defun to-T (item items keys)
     (destructuring-bind (weight item) item
         (if (upper-case-p item)
             (if (member (char-downcase item) keys)
-                (list weight (list item keys))
+                (list weight (list (cons item items) keys))
                 nil)
-            (list weight (list item (add-key item keys))))))
+            (list weight (list (cons item items) (add-key item keys))))))
 
 (defun is-subset (one other)
     (if one
@@ -206,10 +206,20 @@
         (is-subset (second one) (second other))
         nil))
 
-(defun get-f (item)
-    (filter-map #'(lambda (x) (to-T x (second item))) (second (get-first #'(lambda (x) (equal (first x) (first item))) *graph*))))
+(defun shift (list)
+  "Move the first element to the end of the list."
+  (append (rest list) (list (first list))))
 
-;; (format t "~A~%" (get-f '(#\A (#\a))))
+(defun unshift (list)
+  "Move the last element to the front of the list."
+  (append (last list) (butlast list)))
+
+(defun shifts (x) (list x (shift x) (shift (shift x)) (unshift x)))
+
+(defun get-f (item)
+    (flat-map #'(lambda (current) (filter-map #'(lambda (x) (to-T x (rest current) (second item))) (second (get-first #'(lambda (x) (equal (first x) (first current))) *graph*)))) (shifts (first item))))
+
+;; (format t "~A~%" (get-f '((#\1 #\2 #\3 #\4) nil)))
 
 ;; (format t "~A~%" *graph*)
-(format t "~A~%" (dijkstra (list #\@ nil) #'endf #'get-f :prune #'(lambda (x xs) (get-first #'(lambda (y) (prune x y)) xs))))
+(format t "~A~%" (dijkstra (list '(#\1 #\2 #\3 #\4) nil) #'endf #'get-f :prune #'(lambda (x xs) (get-first #'(lambda (y) (prune x y)) xs))))
