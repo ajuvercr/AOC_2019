@@ -64,17 +64,16 @@
             (real-member x (rest ls)))
         nil))
 
-(defun dijkstra-sib (state endf getf seen)
-    (format t "Weight ~A~%" (list-length state))
-    (if (real-member (first (second (first state))) seen)
-        (dijkstra-sib (rest state) endf getf seen)
+(defun dijkstra-sib (state endf getf seen prune)
+    (if (funcall prune (first (second (first state))) seen)
+        (dijkstra-sib (rest state) endf getf seen prune)
         (if state
             (destructuring-bind ((weight path) &rest rest) state
                 (if (funcall endf (first path))
                     (list weight (reverse path))
                     (let ((new-ones (filter #'(lambda (x) (not (real-member x seen))) (mapcar #'(lambda (x) (list (+ weight (first x)) (cons (second x) path))) (funcall getf (first path))))))
-                        (dijkstra-sib (reduce #'(lambda (ls x) (sorted-add x ls #'(lambda (x y) (> (first x) (first y))))) new-ones :initial-value rest) endf getf
-                            (cons (first path) seen)))))
+                        (dijkstra-sib (reduce #'(lambda (ls x) (sorted-add x ls #'(lambda (x y) (>= (first x) (first y))))) new-ones :initial-value rest) endf getf
+                            (cons (first path) seen) prune))))
             nil)))
 
 ;; Start: T is start position
@@ -82,8 +81,8 @@
 ;; getf is function (T) -> (w, T)[] T to list of weights and other T
 ;;
 ;; dijkstra -> (weight, T)[]
-(defun dijkstra (start endf getf)
-    (dijkstra-sib (list (list 0 (list start))) endf getf nil))
+(defun dijkstra (start endf getf &key (prune #'real-member))
+    (dijkstra-sib (list (list 0 (list start))) endf getf nil prune))
 
 (defun split (d n)
     (if n
@@ -96,7 +95,7 @@
         nil))
 
 (defun get-input ()
-    (split #\newline (coerce (uiop:read-file-string #p"input2.txt") 'list)))
+    (split #\newline (coerce (uiop:read-file-string #p"input.txt") 'list)))
 
 
 ;;;;;;;;;;;;;;;;;;;;; Transform input to graph ;;;;;;;;;;;;;;;;;;;;;
@@ -128,23 +127,28 @@
 (defun is-open (x) (not (equal x #\#)))
 (defun is-important (x) (and (is-open x) (not (equal x #\.))))
 
-(defun get-options (dist prev-dir loc)
-    (filter-map #'(lambda (dir) (let ((new-loc (apply-dir loc dir))) (if (is-open (get-at new-loc)) (list (1+ dist) dir new-loc) nil)))
-        (filter-map #'(lambda (x) (if (= (get-oposite-dir x) prev-dir) nil x)) (range 4))))
+(defun get-options (dist seen loc)
+    (filter-map
+        #'(lambda (dir) (let ((new-loc (apply-dir loc dir))) (if (and (is-open (get-at new-loc)) (not (real-member new-loc seen))) (list (1+ dist) (cons new-loc seen) new-loc) nil)))
+        (range 4)))
 
 ;; ls: ((dist prev_dir loc))
 (defun transform-input (ls)
     (if ls
-        (if (is-open (get-at (nth 2 (first ls))))
-            (if (is-important (get-at (nth 2 (first ls))))
-                (cons (list (first (first ls)) (get-at (nth 2 (first ls)))) (transform-input (rest ls)))
-                (transform-input (concat
-                    (apply #'get-options (first ls)) (rest ls))))
-            (transform-input (rest ls)))
+        (if (is-important (get-at (nth 2 (first ls))))
+            (cons (list (first (first ls)) (get-at (nth 2 (first ls)))) (transform-input (rest ls)))
+            (transform-input (concat
+                (apply #'get-options (first ls)) (rest ls))))
         nil))
 
-(defun start-transform (loc)
-    (transform-input (get-options 0 5 loc)))
+(defun get-min-for (ch ls)
+    (list (reduce #'min (mapcar #'first (filter #'(lambda (x) (equal (second x) ch)) ls)) :initial-value 9999) ch))
+
+(defun get-all-min (os ls)
+    (filter #'(lambda (x) (/= 9999 (first x))) (mapcar #'(lambda (x) (get-min-for (first x) ls)) os)))
+
+(defun start-transform (os loc)
+    (get-all-min os (transform-input (get-options 0 nil loc))))
 
 (defun get-all-importants ()
     (flat-map #'(lambda (y)
@@ -153,7 +157,8 @@
         (enumerated *state*)))
 
 (defun get-graph ()
-    (mapcar #'(lambda (x) (list (first x) (start-transform (second x)))) (get-all-importants)))
+    (let ((os (get-all-importants)))
+    (mapcar #'(lambda (x) (list (first x) (start-transform os (second x)))) os)))
 
 
 ;; (format t "~A~%" (get-options *state* 0 5 '(8 4)))
@@ -161,8 +166,7 @@
 ;; (format t "~A~%" (get-all-importants *state*))
 (defparameter *graph*  (get-graph))
 (defparameter *keys* (filter #'lower-case-p (mapcar #'first (get-all-importants))))
-(format t "~A~%" *graph* (filter #'lower-case-p (mapcar #'first (get-all-importants))))
-(format t "~A~%" (filter #'lower-case-p (mapcar #'first (get-all-importants))))
+(format t "~A~%~A~%" *graph* *keys*)
 
 ;; Start: T is start position
 ;; Endf is function (T) -> bool to see if T is end
@@ -190,10 +194,22 @@
                 nil)
             (list weight (list item (add-key item keys))))))
 
+(defun is-subset (one other)
+    (if one
+        (if (real-member (first one) other)
+            (is-subset (rest one) other)
+            nil)
+        T))
+
+(defun prune (one other)
+    (if (equal (first one) (first other))
+        (is-subset (second one) (second other))
+        nil))
+
 (defun get-f (item)
     (filter-map #'(lambda (x) (to-T x (second item))) (second (get-first #'(lambda (x) (equal (first x) (first item))) *graph*))))
 
 ;; (format t "~A~%" (get-f '(#\A (#\a))))
 
 ;; (format t "~A~%" *graph*)
-(format t "~A~%" (dijkstra (list #\@ nil) #'endf #'get-f))
+(format t "~A~%" (dijkstra (list #\@ nil) #'endf #'get-f :prune #'(lambda (x xs) (get-first #'(lambda (y) (prune x y)) xs))))
