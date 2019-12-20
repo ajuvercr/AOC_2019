@@ -2,6 +2,17 @@
 
 (require "uiop")
 
+(defun command-args ()
+  (or 
+   #+CLISP *args*
+   #+SBCL *posix-argv*  
+   #+LISPWORKS system:*line-arguments-list*
+   #+CMU extensions:*command-line-words*
+   nil))
+
+(defun unwrap-or (x def)
+    (if x x def))
+
 (defun get-first (f ls)
     (if ls
         (if (funcall f (first ls))
@@ -71,7 +82,11 @@
             (destructuring-bind ((weight path) &rest rest) state
                 (if (funcall endf (first path))
                     (list weight (reverse path))
-                    (let ((new-ones (filter #'(lambda (x) (not (real-member x seen))) (mapcar #'(lambda (x) (list (+ weight (first x)) (cons (second x) path))) (funcall getf (first path))))))
+                    (let ((new-ones
+                        (mapcar 
+                            #'(lambda (x) (list (+ weight (first x)) (cons (second x) (cons (+ weight (first x)) path)))) 
+                            (funcall getf (first path)))))
+                        
                         (dijkstra-sib (reduce #'(lambda (ls x) (sorted-add x ls #'(lambda (x y) (>= (first x) (first y))))) new-ones :initial-value rest) endf getf
                             (cons (first path) seen) prune))))
             nil)))
@@ -95,7 +110,7 @@
         nil))
 
 (defun get-input ()
-    (split #\newline (coerce (uiop:read-file-string #p"input.txt") 'list)))
+    (split #\newline (coerce (uiop:read-file-string (unwrap-or (second (command-args)) "input.txt")) 'list)))
 
 
 ;;;;;;;;;;;;;;;;;;;;; Transform input to graph ;;;;;;;;;;;;;;;;;;;;;
@@ -132,20 +147,35 @@
 (defun is-open (x) (equal x #\.))
 (defun is-important (x) (alpha-char-p x))
 
+
+(defun is-center (x w)
+    (and (> x 4) (> (- w x) 4)))
+(defun is-inner (loc)
+    (if (and (is-center (first loc) *width*) (is-center (second loc) *height*))
+        -1
+        1))
+
 (defun get-important (loc)
     (let ((one (get-at loc)))
         (if (is-important one)
-            (let ((otheris (get-first #'(lambda (x) (is-important (second x))) (mapcar #'(lambda (x) (list x (get-at (apply-dir loc x)))) (range 4)))))
-                (if (= (mod (first otheris) 2) 1) (list one (second otheris)) (list (second otheris) one)))
+            (let ((otheris 
+                (get-first 
+                    #'(lambda (x) (is-important (second x))) 
+                    (mapcar 
+                        #'(lambda (x) (list x (get-at (apply-dir loc x)))) 
+                        (range 4)))))
+                (if (= (mod (first otheris) 2) 1) (list (list one (second otheris)) (is-inner loc)) (list (list (second otheris) one) (is-inner loc))))
             one)))
 
 (setf *state* (mapcar #'(lambda (y) (mapcar #'(lambda (x) (get-important (list x y))) (range *width*))) (range *height*)))
 
+
 (defun print-state (state)
-    (format t "~A~%" (first state))
+    (format t "~A~%" (coerce (mapcar #'(lambda (x) (if (listp x) (if (= (second x) 1) #\1 #\0) x)) (first state)) 'string))
     (if (second state)
         (print-state (rest state))
         nil))
+;; (print-state *state*)
 
 (defun is-important (x) (if x (listp x) nil))
 
@@ -158,7 +188,6 @@
                     nil)))
         (range 4)))
 
-;; ls: ((dist prev-dir loc))
 (defun transform-input (ls op)
     (if ls
         (if (not (equal op (get-at (nth 2 (first ls)))))
@@ -184,7 +213,7 @@
     (filter #'(lambda (x) (/= 9999 (first x))) (mapcar #'(lambda (x) (get-min-for (first x) ls)) os)))
 
 (defun start-transform (loc op)
-    (transform-input (get-options -1 5 loc) op))
+    (transform-input (get-options -2 5 loc) op))
 
 (defun get-all-importants ()
     (flat-map #'(lambda (y)
@@ -195,25 +224,14 @@
 (defun get-graph ()
     (filter #'second (mapcar #'(lambda (x) (list (first x) (start-transform (second x) (first x)))) (get-all-importants))))
 
-
-;; (format t "~A~%" (get-options *state* 0 5 '(8 4)))
-;; (format t "~A~%" (mapcar #'(lambda (x) (list (first x) (get-at (second x) *state*))) (start-transform '(8 4) *state*)))
-;; (format t "~A~%" (get-all-importants *state*))
 (defparameter *graph*  (get-graph))
 (defparameter *keys* (uniques (mapcar #'first (get-all-importants))))
 
-(setf *graph* (mapcar
-    #'(lambda (x) (list x (flat-map #'(lambda (x) x) (filter-map
-        #'(lambda (option) (if (equal (first option) x) (second option) nil)) *graph*)))) *keys*))
-
-;; Start: T is start position
-;; Endf is function (T) -> bool to see if T is end
-;; getf is function (T) -> (w, T)[] T to list of weights and other T
-
-;; T: char
-
 (defun endf (item)
-    (equal item (list #\Z #\Z)))
+    (equal (second item) (list #\Z #\Z)))
+
+(defun endf2 (item)
+    (equal item (list 0 (list #\Z #\Z) 1)))
 
 (defun shift (list)
   "Move the first element to the end of the list."
@@ -225,9 +243,25 @@
 
 (defun shifts (x) (list x (shift x) (shift (shift x)) (unshift x)))
 
+(defun to-T (item x)
+    (destructuring-bind (w c) x
+        (list w (cons (first item) c))))
+
+(defun teleport (item)
+    (destructuring-bind (depth c d1) item
+        (list 1 (list (+ depth d1) c (* -1 d1)))))
+
 (defun get-f (item)
-    (second (get-first #'(lambda (x) (equal (first x) item)) *graph*)))
+    (cons
+        (teleport item)
+        (mapcar #'(lambda (x) (to-T item x)) (second (get-first #'(lambda (x) (equal (first x) (rest item))) *graph*)))))
 
-;; (format t "~A~%" (get-f '((#\1 #\2 #\3 #\4) nil)))
+(defun get-f2 (item)
+    (let ((tel (teleport item)))
+        (if (> (first (second tel)) 0)
+            (mapcar #'(lambda (x) (to-T item x)) (second (get-first #'(lambda (x) (equal (first x) (rest item))) *graph*)))
+            (cons tel (mapcar #'(lambda (x) (to-T item x)) (second (get-first #'(lambda (x) (equal (first x) (rest item))) *graph*))))
+        )))
 
-(format t "Answer 1: ~A~%" (1- (first (dijkstra (list #\A #\A) #'endf #'get-f))))
+(format t "Answer 1: ~A~%" (first (dijkstra (list 0 (list #\A #\A) 1) #'endf #'get-f)))
+(format t "Answer 2: ~A~%" (first (dijkstra (list 0 (list #\A #\A) 1) #'endf2 #'get-f2)))
