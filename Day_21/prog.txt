@@ -1,0 +1,8 @@
+NOT A T          # SET T as A
+NOT T T
+AND B T
+AND C T
+NOT T T          # T should be false if there is a hole, so make it true
+OR D J           # D
+AND T J
+WALK

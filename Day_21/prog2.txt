@@ -1,0 +1,18 @@
+# simulate after the jump
+# T AND J FALSE
+
+OR H J
+OR E J
+# set J True if you could jump
+
+# simulate jump
+NOT D T     # init T as false, that is at least if you would want to jump
+NOT T T
+AND A T
+AND B T
+AND C T
+
+NOT T T          # T should be false if there is a hole, so make it true
+AND D J           # D
+AND T J
+RUN
