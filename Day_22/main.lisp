@@ -42,42 +42,25 @@
 
 (defun deal-into-new-stack (i n)
     (mod (- (- S i) 1) S))
-
-(defun dins (s n)
-    (reverse s))
-
 (defun deal-into-new-stack-rev (i n)
     (1- (- S i)))
 
 (defun cut-N-cards (i n)
     (mod (+ i n) S))
-
-(defun cut (a n)
-    (if (= n 0)
-        a
-        (if (< n 0)
-            (cut a (+ S n))
-            (cut (shift a) (1- n)))))
-
 (defun cut-N-cards-rev (i n)
     (- i n))
 
 (defun deal-with-increment (i n)
     (mod (* n (- S i)) S))
-
-(defun deal (a n)
-    (mapcar #'(lambda (x) (nth x a)) (mapcar #'(lambda (x) (deal-with-increment x n)) (range S))))
-
 (defun deal-with-increment-rev (i n)
     (* i n))
 
 (defparameter *->* (list #'deal-into-new-stack #'cut-N-cards #'deal-with-increment))
 (defparameter *<-* (list #'deal-into-new-stack-rev #'cut-N-cards-rev #'deal-with-increment-rev))
 
-(defparameter *>* (list #'dins #'cut #'deal))
 
 (defun one-round (init)
-    (reduce #'(lambda (acc inp) (apply (nth (first inp) *<-*) (list acc (second inp)))) (get-input) :initial-value init))
+    (mod (reduce #'(lambda (acc inp) (apply (nth (first inp) *<-*) (list acc (second inp)))) (get-input) :initial-value init) S))
 
 (defun do-while (pred f p x n sum)
     (format t "S: ~A~%" sum)
@@ -85,7 +68,24 @@
         (do-while pred f x (funcall f x) (1+ n) (+ sum (- p x)))
         n))
 
-(format t "Answer 1: ~A~%" (mod (one-round 2019) S))
+(defun do-n-times (f x n)
+    (if (= (mod n 1000) 0)
+        (format t "~A ~A~%" n x)
+        nil)
+    (if (> n 0)
+        (do-n-times f (funcall f x) (1- n))
+        x))
+
+(format t "Answer 1: ~A~%" (one-round 2019))
+
+
 
 (setf S 119315717514047)
-(format t "Answer 2: ~A~%" (mod (* 101741582076661 (one-round 2020)) S))
+(format t "~A~%" (one-round 18066076525641))
+(format t "~A~%" (do-n-times #'one-round 18066076525641 241))
+;; (format t "Answer 1: ~A~%" (mod (one-round (mod (one-round 2019) S)) S))
+
+;; (do-n-times #'one-round 2019 100)
+
+
+;; (format t "Answer 2: ~A~%" (mod (* 101741582076661 (- 2020 (one-round 2020))) S))
