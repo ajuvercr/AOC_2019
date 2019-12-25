@@ -68,7 +68,7 @@
                 (= c 1)                 ;; Should the bug die?
                 (or (= c 1) (= c 2)))) 1 0)) ;; Should a bug spawn?
 
-(defun do-step (state)
+(defun do-step (state &key (inner (empty)) (outer (empty)))
     (mapcar #'(lambda (y) (mapcar #'(lambda (x) (get-bug (list x y) state)) (range 5))) (range 5)))
 
 (defun get-score (state)
@@ -79,10 +79,27 @@
         (get-score state)
         (day-1 (do-step state) (cons state seen))))
 
+(defun mlast (ls)
+    (first (reverse ls)))
+
 ;; (top right bottom left)
 (defun to-inner (state)
-    (list (reduce #'+ (first state))))
+    (list
+        (reduce #'+ (first state))
+        (reduce #'+ (mapcar #'mlast state))
+        (reduce #'+ (mlast state))
+        (reduce #'+ (mapcar #'first state))))
+
+;; (top right bottom left)
+(defun to-outer (state)
+    (list
+        (get-at '(2 1) state)
+        (get-at '(3 2) state)
+        (get-at '(2 3) state)
+        (get-at '(1 2) state)))
+
+(defun empty () '(0 0 0 0))
 
 (format t "Answer 1: ~A~%" (day-1 (get-input) nil))
 
-;; (format t "~A~%" (count T (get-input)))
+(format t "~A~%" (to-outer (get-input)))
