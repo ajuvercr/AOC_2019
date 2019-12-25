@@ -1,0 +1,29 @@
+south
+take asterisk
+south
+west
+north
+take jam
+south
+east
+north
+east
+take klein bottle
+south
+west
+take tambourine
+west
+take cake
+east
+south
+east
+take polygon
+north
+inv
+south
+west
+north
+west
+east
+east
+north
